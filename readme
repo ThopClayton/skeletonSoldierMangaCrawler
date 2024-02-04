@@ -1,2 +1,20 @@
 The manga is downloaded from the following link:
 https://skeleton-soldier.online/
+
+The source code is in web2pdf.py
+The processing folder will contain the individual images of each chapter as they are being downloaded.
+The chapters folder will contain the chapters of the manga.
+_internal is the data required for the .exe file to work on most operating systems.
+You could also run the program via executing web2pdf.py if you have all the required python packages installed on your system.
+
+
+for me, the dev:
+to create the exe, go to the root of the mod and execute the following line in the window's command prompt:
+python -m PyInstaller [FILENAME].py
+two folders will be generated. You can delete "build", and in the other folder place "_internal" and the executable in the root folder, then you
+delete the second generated folder. The .spec file should also be removed.
+
+
+
+TODO:
+normalize image widths.

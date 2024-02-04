@@ -1,2 +1,6 @@
 *.jpg
+*.png
+*.webp
 *.pdf
+chapters/*
+processing/*

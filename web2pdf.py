@@ -3,8 +3,10 @@ import requests
 from bs4 import BeautifulSoup
 from PIL import Image
 import os
-import numpy as np
+import shutil
 
+# TODO
+# format all images to be the same width
 
 
 def downloadPage(site, chapter):
@@ -15,6 +17,7 @@ def downloadPage(site, chapter):
     response = requests.get(site)
     imgNum = 0
     imageWidths = {} # names of each image as key, width as data
+    imageHeights = {}
 
     soup = BeautifulSoup(response.text, 'html.parser')
     img_tags = soup.find_all('img')
@@ -23,7 +26,7 @@ def downloadPage(site, chapter):
 
     
     for url in urls:
-        filename = re.search(r'/([0-9]+[.](jpg|png))$', url) # regex changed to match only numerical image names to avoid other bullshit on page
+        filename = re.search(r'/([0-9]+[.](jpg|png|webp))$', url) # regex changed to match only numerical image names to avoid other bullshit on page
         if not filename:
             # print("Regex didn't match with the url: {}".format(url))
             continue
@@ -37,6 +40,7 @@ def downloadPage(site, chapter):
             f.write(response.content) 
             try: # added because on chapter 167, there is a reference to a '01.jpg' even though the manga starts on 02
                 imageWidths[filename.group(1)] = Image.open(os.path.join('processing', filename.group(1))).width
+                imageHeights[filename.group(1)] = Image.open(os.path.join('processing', filename.group(1))).height
                 imgNum += 1
             except:
                 pass
@@ -47,8 +51,10 @@ def downloadPage(site, chapter):
     im1 = 0 # base for everything else
     
     for key in imageWidths.keys():
-        if imageWidths[key] != np.median([x for x in imageWidths.values()]): # filter out images that are different widths, because they are usually extras from third parties
-            continue
+        # ch 55 randomly changes image widths MULTIPLE TIMES for seemingly no reason. ch 56 then resumes having homogeneous widths
+        # since multiple different groups have done the translating, there is no single way to filter out non-manga content despite my efforts 
+        #if (imageHeights[key] / imageWidths[key] <= 1.5):
+        #    continue
 
         image = Image.open(os.path.join('processing', key))
         im = image.convert('RGB')
@@ -63,29 +69,52 @@ def downloadPage(site, chapter):
     for key in imageWidths.keys():
         os.remove(os.path.join('processing', key))
 
-def downloadEveryChapter(chapter=1):
-    '''enter the chapter you would like to start downloading from
-    can't do it for when the URL format is changed for seemingly no reason, like chapter 141'''
-    website = f'https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-{chapter}/'
-    while(200 == requests.head(website).status_code): # true if website exists (and isn't a redirection)
-        print(f'downloading chapter: {chapter}')
-        if chapter == 141:
-            website = 'https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-141-end-of-season-2/'
-        else:
+def getLink4chapter(chapter):
+    if chapter == 141: # chapter 141 has its own unique link for some reason...
+        website = 'https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-141-end-of-season-2/'
+    else:
+        # looks like they gave up on using a volume, chapter format @ ch. 202 and beyond
+        if chapter <= 201:
             website = f'https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-{chapter}/'
+        else:
+            website = f'https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-{chapter}/'
+
+    return website
+
+def downloadEveryChapter(chapter=1):
+    '''enter the chapter you would like to start downloading from'''
+    website = getLink4chapter(chapter)
+    webCode = requests.head(website).status_code
+    # true if website exists (and isn't a redirection)
+    while(webCode == 200):
+        print(f'downloading chapter: {chapter}')
         downloadPage(website, chapter)
         chapter += 1
+        website = getLink4chapter(chapter)
+        webCode = requests.head(website).status_code
+
+    if webCode == 301:
+        print(f'code {webCode}: That should mean we have run out of chapters to download!')
+    else:
+        print(f"code {webCode}: I'm not sure why we would encounter that. Please contact me on discord via 'thop.'")
         
 
 
 
 def main():
-    #downloadPage('https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-1/', 1)
-    downloadEveryChapter(167) # value is hard coded, just change it here
-    print('ALL DONE!')
-
+    for file in os.scandir('processing'):
+        os.remove(file)
+    while(1):
+        inp = input('enter the chapter number you would like to start downloading from.\nclose this window to shut down this program.\n>>>')
+        if not inp.isdigit() or int(inp) < 1:
+            print("please enter an integer value greater or equal to 1!")
+            continue
+        inp = int(inp) # done after check to ensure it is actually an integer and not a string cast to int
+        downloadEveryChapter(inp) 
+        print('ALL DONE!')
+        return 0
     # testing stuff
-    #response = requests.head('https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-999/')
+    #response = requests.head('https://skeleton-soldier.online/manga/skeleton-soldier-couldnt-protect-the-dungeon-chapter-1-260/')
     #print(response.status_code)
 
 if __name__ == "__main__":
